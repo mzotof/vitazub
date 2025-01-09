@@ -1,10 +1,11 @@
 import os
 import sys
 from shutil import copy2
+from typing import Optional
 
 import pandas
-from PySide2.QtCore import QDate, QTime, QSize, Qt
-from PySide2.QtWidgets import QApplication, QMainWindow, QFileDialog, QWidget, QSizePolicy
+from PySide2.QtCore import QDate, QTime, QSize
+from PySide2.QtWidgets import QApplication, QMainWindow, QFileDialog, QSizePolicy, QWidget
 from PySide2.QtCharts import QtCharts
 from PySide2.QtGui import QPainter
 
@@ -45,9 +46,20 @@ user_name = ''
 # ############################################################################################ #
 # ---------------------------------------- ОКНО ВХОДА ---------------------------------------- #
 # ############################################################################################ #
-LoginForm = QWidget()
-ui_login = Ui_LoginForm()
-ui_login.setupUi(LoginForm)
+LoginForm: Optional[QWidget] = None
+ui_login: Optional[Ui_LoginForm] = None
+
+
+def init_login_form():
+    global LoginForm, ui_login
+    LoginForm = QWidget()
+    LoginForm.setAttribute(Qt.WA_DeleteOnClose, True)
+    ui_login = Ui_LoginForm()
+    ui_login.setupUi(LoginForm)
+
+    ui_login.enterButton.clicked.connect(send_login)
+    ui_login.configButton.clicked.connect(open_config)
+    ui_login.cancelButton.clicked.connect(LoginForm.close)
 
 
 def send_login():
@@ -58,31 +70,10 @@ def send_login():
         user_name = error[1]
         LoginForm.hide()
         mw.doctor_s.addItem('Выберите врача...')
-        taf.doctor_s.addItem('Выберите врача...')
         mw.task_dt_e.setDate(QDate.currentDate().addDays(7))
-        df.spec_s.setModel(db_spec_sel())
-        sf.category_s.setModel(db_category_sel())
-        technical = db_technical_sel()
-        start_tm = technical[1]
-        rf.start_time_e.setMinimumTime(QTime(int(start_tm[0:2]), int(start_tm[3:5])))
-        rf.end_time_e.setMinimumTime(QTime(int(start_tm[0:2]), int(start_tm[3:5])))
-        end_tm = technical[2]
-        rf.start_time_e.setMaximumTime(QTime(int(end_tm[0:2]), int(end_tm[3:5])))
-        rf.end_time_e.setMaximumTime(QTime(int(end_tm[0:2]), int(end_tm[3:5])))
 
         mw.loan_start_dt_e.setDate(QDate.currentDate().addYears(-1))
         mw.loan_end_dt_e.setDate(QDate.currentDate())
-
-        cur_dt = QDate.currentDate()
-        repf.rec_start_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), 1))
-        repf.rec_end_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), cur_dt.daysInMonth()))
-        repf.serv_start_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), 1))
-        repf.serv_end_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), cur_dt.daysInMonth()))
-        repf.fin_start_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), 1))
-        repf.fin_end_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), cur_dt.daysInMonth()))
-        rep_rec_upd()
-        rep_serv_upd()
-        rep_fin_upd()
 
         main_window.showMaximized()
         mw.doctor_s.setFocus()
@@ -102,20 +93,28 @@ def send_login():
 
 def open_config():
     LoginForm.hide()
+    init_config_form()
     ConfigForm.show()
     ui_config.dbEdit.setText(db_name())
 
 
-ui_login.enterButton.clicked.connect(send_login)
-ui_login.configButton.clicked.connect(open_config)
-ui_login.cancelButton.clicked.connect(LoginForm.close)
-
 # ############################################################################################# #
 # ------------------------------------- ОКНО КОНФИГУРАЦИИ ------------------------------------- #
 # ############################################################################################# #
-ConfigForm = QWidget()
-ui_config = Ui_configForm()
-ui_config.setupUi(ConfigForm)
+ConfigForm: Optional[QWidget] = None
+ui_config: Optional[Ui_configForm] = None
+
+
+def init_config_form():
+    global ConfigForm, ui_config
+    ConfigForm = QWidget()
+    ConfigForm.setAttribute(Qt.WA_DeleteOnClose, True)
+    ui_config = Ui_configForm()
+    ui_config.setupUi(ConfigForm)
+
+    ui_config.dbButton.clicked.connect(find_db)
+    ui_config.saveButton.clicked.connect(save_config)
+    ui_config.cancelButton.clicked.connect(open_login)
 
 
 def find_db():
@@ -130,14 +129,11 @@ def save_config():
 
 def open_login():
     ConfigForm.hide()
+    init_login_form()
     ui_login.loginEdit.clear()
     ui_login.passEdit.clear()
     LoginForm.show()
 
-
-ui_config.dbButton.clicked.connect(find_db)
-ui_config.saveButton.clicked.connect(save_config)
-ui_config.cancelButton.clicked.connect(open_login)
 
 # ############################################################################################ #
 # --------------------------------------- ГЛАВНОЕ ОКНО --------------------------------------- #
@@ -148,6 +144,7 @@ mw.setupUi(main_window)
 
 
 def open_show_users():
+    init_show_users_form()
     suf.view.setModel(db_user_sel())
     suf.view.resizeColumnsToContents()
     show_users_form.show()
@@ -181,6 +178,7 @@ def show_reminder():
 
 def change_db():
     main_window.close()
+    init_config_form()
     ui_config.dbEdit.setText(db_name())
     ConfigForm.show()
 
@@ -197,6 +195,7 @@ def open_technical_upd():
         show_error('Данное действие доступно только администраторам системы', 'Ок')
     else:
         technical = db_technical_sel()
+        init_technical_form()
         tf.name_e.setText(technical[0])
         tf.start_tm_e.setTime(QTime(int(technical[1][0:2]), int(technical[1][3:5])))
         tf.end_tm_e.setTime(QTime(int(technical[2][0:2]), int(technical[2][3:5])))
@@ -220,6 +219,7 @@ def open_create_salary_report():
     if not is_admin:
         show_error('Данное действие доступно только администраторам системы', 'Ок')
     else:
+        init_salary_report_form()
         salary_report_set_period(QDate.currentDate().addMonths(-1))
         salary_report_form.show()
 
@@ -228,10 +228,12 @@ def open_reports():
     if not is_admin:
         show_error('Данное действие доступно только администраторам системы', 'Ок')
     else:
+        init_reports_form()
         reports_form.showMaximized()
 
 
 def open_transaction_form():
+    init_transaction_form()
     transaction_form.show()
 
 
@@ -269,6 +271,7 @@ def show_schedule():
 def open_rec_ins(checked=None, start_tm=None):
     global selected_services, selected_client_id, selected_rec_id
     if mw.doctor_s.currentIndex() > 0:
+        init_recording_form()
         selected_client_id = -1
         selected_rec_id = -1
         selected_services = {}
@@ -287,7 +290,7 @@ def open_rec_ins(checked=None, start_tm=None):
         if start_tm is None:
             start_tm = rf.start_time_e.minimumTime()
         rf.start_time_e.setTime(start_tm)
-        rf.end_time_e.setTime(start_tm.addSecs(1800))
+        rf.end_time_e.setTime(start_tm.addSecs(3600))
         rf.comment_e.clear()
         rf.payment_source_s.clear()
         rf.sum.clear()
@@ -307,6 +310,7 @@ def open_rec_ins(checked=None, start_tm=None):
 def open_rec_upd(rec_id, doctor_name, client_id, client_name, phone, phone2, discount,
                  rec_dt, start_tm, end_tm, comment):
     global selected_services, selected_client_id, selected_rec_id
+    init_recording_form()
     selected_client_id = client_id
     selected_rec_id = rec_id
     selected_services = db_find_serv_list(rec_id)
@@ -340,7 +344,7 @@ def open_rec_upd(rec_id, doctor_name, client_id, client_name, phone, phone2, dis
     amounts = db_amounts_sel(rec_id)
     rf.to_pay_e.setValue(amounts[0])
     rf.payed_e.setValue(amounts[1])
-    rf.total_to_pay_e.setValue(amounts[0] - amounts[1])
+    rf.total_to_pay_e.setValue(round(float(rf.to_pay_e.value()) * (100 - rf.discount_e.value()) / 100, 2) - amounts[1])
     rf.del_b.setVisible(True)
     rf.serv_v.resizeColumnsToContents()
     rf.serv_sel_v.resizeColumnsToContents()
@@ -412,12 +416,13 @@ mw.loan_v.doubleClicked.connect(open_rec_upd_from_loans)
 
 
 def open_client_add():
+    init_client_form()
     cf.ln_e.clear()
     cf.fn_e.clear()
     cf.mn_e.clear()
     cf.phone_e.clear()
     cf.phone2_e.clear()
-    cf.discount_e.clear()
+    cf.discount_e.setValue(0)
     cf.birth_dt_e.clear()
     cf.comment_e.clear()
     cf.balance_e.clear()
@@ -453,6 +458,7 @@ def find_client():
 
 def open_edit_client():
     if len(mw.clients_v.selectedIndexes()) > 0:
+        init_client_form()
         model = mw.clients_v.selectedIndexes()[0].model()
         row = mw.clients_v.selectedIndexes()[0].row()
         cf.ln_e.setText(model.data(model.index(row, 1)))
@@ -495,6 +501,7 @@ def open_insur_ins():
     if not is_admin:
         show_error('Данное действие доступно только администраторам системы', 'Ок')
     else:
+        init_insurance_form()
         if_.name_e.clear()
         if_.comment_e.clear()
         if_.del_b.setVisible(False)
@@ -518,6 +525,7 @@ def open_insur_upd():
         show_error('Данное действие доступно только администраторам системы', 'Ок')
     else:
         if len(mw.insur_v.selectedIndexes()) > 0:
+            init_insurance_form()
             model = mw.insur_v.selectedIndexes()[0].model()
             row = mw.insur_v.selectedIndexes()[0].row()
             if_.name_e.setText(model.data(model.index(row, 1)))
@@ -553,6 +561,7 @@ def open_doctor_ins():
     if not is_admin:
         show_error('Данное действие доступно только администраторам системы', 'Ок')
     else:
+        init_doctor_form()
         df.ln_e.clear()
         df.fn_e.clear()
         df.mn_e.clear()
@@ -584,6 +593,7 @@ def open_doctor_upd():
         show_error('Данное действие доступно только администраторам системы', 'Ок')
     else:
         if len(mw.doctor_v.selectedIndexes()) > 0:
+            init_doctor_form()
             model = mw.doctor_v.selectedIndexes()[0].model()
             row = mw.doctor_v.selectedIndexes()[0].row()
             df.ln_e.setText(model.data(model.index(row, 1)))
@@ -625,6 +635,7 @@ def open_serv_ins():
     if not is_admin:
         show_error('Данное действие доступно только администраторам системы', 'Ок')
     else:
+        init_serv_form()
         sf.mkb_e.clear()
         sf.name_e.clear()
         sf.price_e.clear()
@@ -650,6 +661,7 @@ def open_serv_upd():
         show_error('Данное действие доступно только администраторам системы', 'Ок')
     else:
         if len(mw.serv_v.selectedIndexes()) > 0:
+            init_serv_form()
             model = mw.serv_v.selectedIndexes()[0].model()
             row = mw.serv_v.selectedIndexes()[0].row()
             sf.mkb_e.setText(model.data(model.index(row, 1)))
@@ -685,6 +697,7 @@ mw.serv_del_b.clicked.connect(serv_del)
 
 
 def open_mater_ins():
+    init_material_form()
     mf.name_e.clear()
     mf.comment_e.clear()
     mf.del_b.setVisible(False)
@@ -705,6 +718,7 @@ def mater_sel_all():
 
 def open_mater_upd():
     if len(mw.mater_v.selectedIndexes()) > 0:
+        init_material_form()
         model = mw.mater_v.selectedIndexes()[0].model()
         row = mw.mater_v.selectedIndexes()[0].row()
         mf.name_e.setText(model.data(model.index(row, 1)))
@@ -727,6 +741,7 @@ def mater_del():
 
 def open_mater_add():
     if len(mw.mater_v.selectedIndexes()) == 1:
+        init_material_amount_form()
         maf.amount_e.setValue(1)
         maf.add_b.setText('Добавить')
         material_amount_form.show()
@@ -736,6 +751,7 @@ def open_mater_add():
 
 def open_mater_sub():
     if len(mw.mater_v.selectedIndexes()) == 1:
+        init_material_amount_form()
         maf.amount_e.setValue(1)
         maf.add_b.setText('Уменьшить')
         material_amount_form.show()
@@ -754,6 +770,7 @@ mw.mater_sub_b.clicked.connect(open_mater_sub)
 
 
 def open_task_ins():
+    init_task_form()
     taf.name_e.clear()
     taf.dt_e.setDate(QDate.currentDate().addDays(7))
     taf.status_s.setCurrentIndex(0)
@@ -773,6 +790,7 @@ def task_sel():
 
 def open_task_upd():
     if len(mw.task_v.selectedIndexes()) > 0:
+        init_task_form()
         model = mw.task_v.selectedIndexes()[0].model()
         row = mw.task_v.selectedIndexes()[0].row()
         taf.name_e.setText(model.data(model.index(row, 1)))
@@ -806,9 +824,24 @@ mw.task_del_b.clicked.connect(task_del)
 # ########################################################################################### #
 # -------------------------------------- ФОРМА КЛИЕНТА -------------------------------------- #
 # ########################################################################################### #
-client_form = QWidget()
-cf = Ui_ClientForm()
-cf.setupUi(client_form)
+client_form: Optional[QWidget] = None
+cf: Optional[Ui_ClientForm] = None
+
+
+def init_client_form():
+    global client_form, cf
+    client_form = QWidget()
+    client_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    cf = Ui_ClientForm()
+    cf.setupUi(client_form)
+
+    cf.phone_e.editingFinished.connect(clean_client_phone)
+    cf.phone2_e.editingFinished.connect(clean_client_additional_phone)
+    cf.save_b.clicked.connect(client_save)
+    cf.del_b.clicked.connect(client_delete)
+    cf.insur_b.clicked.connect(open_client_insur_ins)
+    cf.change_bal_b.clicked.connect(open_change_client_balance)
+    cf.cancel_b.clicked.connect(client_form.close)
 
 
 def clean_phone(not_cleaned_phone):
@@ -856,6 +889,7 @@ def client_save():
 
 
 def open_client_insur_ins():
+    init_client_insurance_form()
     model = mw.clients_v.selectedIndexes()[0].model()
     row = mw.clients_v.selectedIndexes()[0].row()
     client_insur_sel(model.data(model.index(row, 0)))
@@ -874,26 +908,28 @@ def open_client_insur_ins():
 
 
 def open_change_client_balance():
+    init_change_client_balance_form()
     ccbf.trans_source_s.setCurrentIndex(0)
     ccbf.amount_e.clear()
     ccbf.comment_e.clear()
     change_client_balance_form.show()
 
-
-cf.phone_e.editingFinished.connect(clean_client_phone)
-cf.phone2_e.editingFinished.connect(clean_client_additional_phone)
-cf.save_b.clicked.connect(client_save)
-cf.del_b.clicked.connect(client_delete)
-cf.insur_b.clicked.connect(open_client_insur_ins)
-cf.change_bal_b.clicked.connect(open_change_client_balance)
-cf.cancel_b.clicked.connect(client_form.close)
-
 # ########################################################################################### #
 # ----------------------------- ФОРМА ИЗМЕНЕНИЯ БАЛАНСА КЛИЕНТА ----------------------------- #
 # ########################################################################################### #
-change_client_balance_form = QWidget()
-ccbf = Ui_TransactionForm()
-ccbf.setupUi(change_client_balance_form)
+change_client_balance_form: Optional[QWidget] = None
+ccbf: Optional[Ui_TransactionForm] = None
+
+
+def init_change_client_balance_form():
+    global change_client_balance_form, ccbf
+    change_client_balance_form = QWidget()
+    change_client_balance_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    ccbf = Ui_TransactionForm()
+    ccbf.setupUi(change_client_balance_form)
+
+    ccbf.make_b.clicked.connect(change_client_balance)
+    ccbf.cancel_b.clicked.connect(change_client_balance_form.close)
 
 
 def change_client_balance():
@@ -917,15 +953,24 @@ def change_client_balance():
         show_info('Транзакция успешно проведена')
 
 
-ccbf.make_b.clicked.connect(change_client_balance)
-ccbf.cancel_b.clicked.connect(change_client_balance_form.close)
-
 # ########################################################################################### #
 # ----------------------------- ФОРМА СВЯЗИ КЛИЕНТА И СТРАХОВКИ ----------------------------- #
 # ########################################################################################### #
-client_insurance_form = QWidget()
-cif = Ui_ClientInsuranceForm()
-cif.setupUi(client_insurance_form)
+client_insurance_form: Optional[QWidget] = None
+cif: Optional[Ui_ClientInsuranceForm] = None
+
+
+def init_client_insurance_form():
+    global client_insurance_form, cif
+    client_insurance_form = QWidget()
+    client_insurance_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    cif = Ui_ClientInsuranceForm()
+    cif.setupUi(client_insurance_form)
+
+    cif.save_b.clicked.connect(client_insur_ins)
+    cif.upd_b.clicked.connect(client_insur_upd)
+    cif.view.doubleClicked.connect(client_insur_upd)
+    cif.del_b.clicked.connect(client_insur_del)
 
 
 def client_insur_sel(c_id):
@@ -992,17 +1037,23 @@ def client_insur_del():
         show_error('Выберите хотя-бы одну страховку', 'ОК')
 
 
-cif.save_b.clicked.connect(client_insur_ins)
-cif.upd_b.clicked.connect(client_insur_upd)
-cif.view.doubleClicked.connect(client_insur_upd)
-cif.del_b.clicked.connect(client_insur_del)
-
 # ########################################################################################### #
 # ------------------------------------- ФОРМА СТРАХОВОЙ ------------------------------------- #
 # ########################################################################################### #
-insurance_form = QWidget()
-if_ = Ui_InsuranceForm()
-if_.setupUi(insurance_form)
+insurance_form: Optional[QWidget] = None
+if_: Optional[Ui_InsuranceForm] = None
+
+
+def init_insurance_form():
+    global insurance_form, if_
+    insurance_form = QWidget()
+    insurance_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    if_ = Ui_InsuranceForm()
+    if_.setupUi(insurance_form)
+
+    if_.save_b.clicked.connect(insur_save)
+    if_.del_b.clicked.connect(insur_del)
+    if_.cancel_b.clicked.connect(insurance_form.close)
 
 
 def insur_save():
@@ -1021,16 +1072,27 @@ def insur_save():
         insurance_form.close()
 
 
-if_.save_b.clicked.connect(insur_save)
-if_.del_b.clicked.connect(insur_del)
-if_.cancel_b.clicked.connect(insurance_form.close)
-
 # ########################################################################################### #
 # -------------------------------------- ФОРМА ДОКТОРА -------------------------------------- #
 # ########################################################################################### #
-doctor_form = QWidget()
-df = Ui_DoctorForm()
-df.setupUi(doctor_form)
+doctor_form: Optional[QWidget] = None
+df: Optional[Ui_DoctorForm] = None
+
+
+def init_doctor_form():
+    global doctor_form, df
+    doctor_form = QWidget()
+    doctor_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    df = Ui_DoctorForm()
+    df.setupUi(doctor_form)
+
+    df.phone_e.editingFinished.connect(clean_doctor_phone)
+    df.phone2_e.editingFinished.connect(clean_doctor_additional_phone)
+    df.save_b.clicked.connect(doctor_save)
+    df.del_b.clicked.connect(doctor_del)
+    df.cancel_b.clicked.connect(doctor_form.close)
+
+    df.spec_s.setModel(db_spec_sel())
 
 
 def doctor_save():
@@ -1063,18 +1125,25 @@ def clean_doctor_additional_phone():
     df.phone2_e.setText(clean_phone(df.phone2_e.text()))
 
 
-df.phone_e.editingFinished.connect(clean_doctor_phone)
-df.phone2_e.editingFinished.connect(clean_doctor_additional_phone)
-df.save_b.clicked.connect(doctor_save)
-df.del_b.clicked.connect(doctor_del)
-df.cancel_b.clicked.connect(doctor_form.close)
-
 # ########################################################################################### #
 # -------------------------------------- ФОРМА УСЛУГИ --------------------------------------- #
 # ########################################################################################### #
-serv_form = QWidget()
-sf = Ui_ServiceForm()
-sf.setupUi(serv_form)
+serv_form: Optional[QWidget] = None
+sf: Optional[Ui_ServiceForm] = None
+
+
+def init_serv_form():
+    global serv_form, sf
+    serv_form = QWidget()
+    serv_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    sf = Ui_ServiceForm()
+    sf.setupUi(serv_form)
+
+    sf.save_b.clicked.connect(serv_save)
+    sf.del_b.clicked.connect(serv_del)
+    sf.cancel_b.clicked.connect(serv_form.close)
+
+    sf.category_s.setModel(db_category_sel())
 
 
 def serv_save():
@@ -1098,10 +1167,6 @@ def serv_save():
         serv_form.close()
 
 
-sf.save_b.clicked.connect(serv_save)
-sf.del_b.clicked.connect(serv_del)
-sf.cancel_b.clicked.connect(serv_form.close)
-
 # ############################################################################################ #
 # --------------------------------------- ФОРМА ЗАПИСИ --------------------------------------- #
 # ############################################################################################ #
@@ -1113,9 +1178,41 @@ class RecordingFormWidget(QWidget):
         loans_sel()
 
 
-recording_form = RecordingFormWidget()
-rf = Ui_RecordingForm()
-rf.setupUi(recording_form)
+recording_form: Optional[RecordingFormWidget] = None
+rf: Optional[Ui_RecordingForm] = None
+
+
+def init_recording_form():
+    global recording_form, rf
+    recording_form = RecordingFormWidget()
+    recording_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    rf = Ui_RecordingForm()
+    rf.setupUi(recording_form)
+
+    rf.client_find_b.clicked.connect(open_client_find)
+    rf.serv_sel_b.clicked.connect(rec_serv_sel)
+    rf.serv_v.doubleClicked.connect(rec_serv_sel)
+    rf.serv_unsel_b.clicked.connect(rec_serv_unsel)
+    rf.serv_sel_v.doubleClicked.connect(rec_serv_unsel)
+    rf.serv_e.textEdited.connect(serv_find)
+    rf.save_b.clicked.connect(rec_ins)
+    rf.del_b.clicked.connect(rec_form_del)
+    rf.pay_b.clicked.connect(pay)
+    rf.pay_all_b.clicked.connect(pay_all)
+    rf.payment_source_s.currentIndexChanged.connect(client_balance_sel)
+    rf.cancel_b.clicked.connect(recording_form.close)
+    rf.start_time_e.editingFinished.connect(change_end_time_after_start)
+    rf.discount_e.editingFinished.connect(set_new_discount)
+
+    technical = db_technical_sel()
+    start_tm = technical[1]
+    rf.start_time_e.setMinimumTime(QTime(int(start_tm[0:2]), int(start_tm[3:5])))
+    rf.end_time_e.setMinimumTime(QTime(int(start_tm[0:2]), int(start_tm[3:5])))
+    end_tm = technical[2]
+    rf.start_time_e.setMaximumTime(QTime(int(end_tm[0:2]), int(end_tm[3:5])))
+    rf.end_time_e.setMaximumTime(QTime(int(end_tm[0:2]), int(end_tm[3:5])))
+
+
 selected_client_id = -1
 selected_rec_id = -1
 selected_services = {}
@@ -1123,6 +1220,7 @@ selected_services = {}
 
 def open_client_find():
     global selected_client_id
+    init_client_find_form()
     selected_client_id = -1
     cff.ln_e.clear()
     cff.fn_e.clear()
@@ -1144,8 +1242,7 @@ def rec_serv_sel():
                 selected_services.update([(services.value(0), selected_services[services.value(0)] + 1)])
             else:
                 selected_services.update([(services.value(0), 1)])
-            rf.to_pay_e.setValue(rf.to_pay_e.value() +
-                                 round(float(services.value(4)) * (100 - rf.discount_e.value()) / 100, 2))
+            rf.to_pay_e.setValue(rf.to_pay_e.value() + float(services.value(4)))
             rf.total_to_pay_e.setValue(rf.total_to_pay_e.value() +
                                        round(float(services.value(4)) * (100 - rf.discount_e.value()) / 100, 2))
         rf.serv_sel_v.setModel(db_make_serv_list(selected_services))
@@ -1171,8 +1268,7 @@ def rec_serv_unsel():
             selected_services.update([(services.value(0), selected_services[services.value(0)] - 1)])
             if selected_services[services.value(0)] == 0:
                 selected_services.pop(services.value(0))
-            rf.to_pay_e.setValue(rf.to_pay_e.value() -
-                                 round(float(services.value(4)) * (100 - rf.discount_e.value()) / 100, 2))
+            rf.to_pay_e.setValue(rf.to_pay_e.value() - float(services.value(4)))
             rf.total_to_pay_e.setValue(rf.total_to_pay_e.value() -
                                        round(float(services.value(4)) * (100 - rf.discount_e.value()) / 100, 2))
         rf.serv_sel_v.setModel(db_make_serv_list(selected_services))
@@ -1303,25 +1399,33 @@ def client_balance_sel():
         show_info('Баланс депозитного счета клиента составляет ' + str(db_client_balance_sel(rec.value(1))) + ' руб')
 
 
-rf.client_find_b.clicked.connect(open_client_find)
-rf.serv_sel_b.clicked.connect(rec_serv_sel)
-rf.serv_v.doubleClicked.connect(rec_serv_sel)
-rf.serv_unsel_b.clicked.connect(rec_serv_unsel)
-rf.serv_sel_v.doubleClicked.connect(rec_serv_unsel)
-rf.serv_e.textEdited.connect(serv_find)
-rf.save_b.clicked.connect(rec_ins)
-rf.del_b.clicked.connect(rec_form_del)
-rf.pay_b.clicked.connect(pay)
-rf.pay_all_b.clicked.connect(pay_all)
-rf.payment_source_s.currentIndexChanged.connect(client_balance_sel)
-rf.cancel_b.clicked.connect(recording_form.close)
+def change_end_time_after_start():
+    rf.end_time_e.setTime(rf.start_time_e.time().addSecs(3600))
+
+
+def set_new_discount():
+    rf.total_to_pay_e.setValue(
+        round(float(rf.to_pay_e.value()) * (100 - rf.discount_e.value()) / 100, 2) - rf.payed_e.value()
+    )
+
 
 # ############################################################################################ #
 # ----------------------------------- ФОРМА ПОИСКА КЛИЕНТА ----------------------------------- #
 # ############################################################################################ #
-client_find_form = QWidget()
-cff = Ui_ClientFindForm()
-cff.setupUi(client_find_form)
+client_find_form: Optional[QWidget] = None
+cff: Optional[Ui_ClientFindForm] = None
+
+
+def init_client_find_form():
+    global client_find_form, cff
+    client_find_form = QWidget()
+    client_find_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    cff = Ui_ClientFindForm()
+    cff.setupUi(client_find_form)
+
+    cff.sel_b.clicked.connect(client_find)
+    cff.view.doubleClicked.connect(close_client_find)
+    cff.ins_b.clicked.connect(open_client_add)
 
 
 def client_find():
@@ -1342,6 +1446,7 @@ def close_client_find():
     rf.phone.setText(clients.value(4))
     rf.phone2.setText(clients.value(5))
     rf.discount_e.setValue(int(clients.value(6)))
+    rf.total_to_pay_e.setValue(round(float(rf.to_pay_e.value()) * (100 - rf.discount_e.value()) / 100, 2))
     rf.payment_source_s.clear()
     rf.payment_source_s.addItem('Выберите источник оплаты...')
     rf.payment_source_s.addItem('Наличные')
@@ -1355,16 +1460,22 @@ def close_client_find():
     client_find_form.close()
 
 
-cff.sel_b.clicked.connect(client_find)
-cff.view.doubleClicked.connect(close_client_find)
-cff.ins_b.clicked.connect(open_client_add)
-
 # ########################################################################################### #
 # ------------------------------------ ТЕХНИЧЕСКАЯ ФОРМА ------------------------------------ #
 # ########################################################################################### #
-technical_form = QWidget()
-tf = Ui_TechnicalForm()
-tf.setupUi(technical_form)
+technical_form: Optional[QWidget] = None
+tf: Optional[Ui_TechnicalForm] = None
+
+
+def init_technical_form():
+    global technical_form, tf
+    technical_form = QWidget()
+    technical_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    tf = Ui_TechnicalForm()
+    tf.setupUi(technical_form)
+
+    tf.save_b.clicked.connect(technical_upd)
+    tf.cancel_b.clicked.connect(technical_form.close)
 
 
 def technical_upd():
@@ -1378,15 +1489,27 @@ def technical_upd():
     show_info('Информация успешно сохранена')
 
 
-tf.save_b.clicked.connect(technical_upd)
-tf.cancel_b.clicked.connect(technical_form.close)
-
 # ########################################################################################### #
 # ------------------------------- ФОРМА СОЗДАНИЯ ОТЧЕТА ПО ЗП ------------------------------- #
 # ########################################################################################### #
-salary_report_form = QWidget()
-srf = Ui_SalaryReportForm()
-srf.setupUi(salary_report_form)
+salary_report_form: Optional[QWidget] = None
+srf: Optional[Ui_SalaryReportForm] = None
+
+
+def init_salary_report_form():
+    global salary_report_form, srf
+    salary_report_form = QWidget()
+    salary_report_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    srf = Ui_SalaryReportForm()
+    srf.setupUi(salary_report_form)
+
+    srf.cur_month_b.clicked.connect(set_cur_month_period)
+    srf.pre_month_b.clicked.connect(set_pre_month_period)
+    srf.start_dt_e.dateChanged.connect(reset_period)
+    srf.end_dt_e.dateChanged.connect(reset_period)
+    srf.find_dir_b.clicked.connect(find_directory)
+    srf.create_b.clicked.connect(create_salary_report)
+    srf.cancel_b.clicked.connect(salary_report_form.close)
 
 
 def set_cur_month_period():
@@ -1424,20 +1547,23 @@ def create_salary_report():
         show_info('Отчет успешно создан и сохранен. Путь к файлу: ' + srf.directory_e.text())
 
 
-srf.cur_month_b.clicked.connect(set_cur_month_period)
-srf.pre_month_b.clicked.connect(set_pre_month_period)
-srf.start_dt_e.dateChanged.connect(reset_period)
-srf.end_dt_e.dateChanged.connect(reset_period)
-srf.find_dir_b.clicked.connect(find_directory)
-srf.create_b.clicked.connect(create_salary_report)
-srf.cancel_b.clicked.connect(salary_report_form.close)
-
 # ########################################################################################### #
 # ------------------------------------ ФОРМА МАТЕРИАЛОВ ------------------------------------- #
 # ########################################################################################### #
-material_form = QWidget()
-mf = Ui_MaterialForm()
-mf.setupUi(material_form)
+material_form: Optional[QWidget] = None
+mf: Optional[Ui_MaterialForm] = None
+
+
+def init_material_form():
+    global material_form, mf
+    material_form = QWidget()
+    material_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    mf = Ui_MaterialForm()
+    mf.setupUi(material_form)
+
+    mf.save_b.clicked.connect(mater_save)
+    mf.del_b.clicked.connect(mater_del)
+    mf.cancel_b.clicked.connect(material_form.close)
 
 
 def mater_save():
@@ -1456,16 +1582,22 @@ def mater_save():
         material_form.close()
 
 
-mf.save_b.clicked.connect(mater_save)
-mf.del_b.clicked.connect(mater_del)
-mf.cancel_b.clicked.connect(material_form.close)
-
 # ########################################################################################### #
 # ---------------------------- ФОРМА ИЗМЕНЕНИЕ КОЛ-ВА МАТЕРИАЛОВ ---------------------------- #
 # ########################################################################################### #
-material_amount_form = QWidget()
-maf = Ui_MaterialAmountForm()
-maf.setupUi(material_amount_form)
+material_amount_form: Optional[QWidget] = None
+maf: Optional[Ui_MaterialAmountForm] = None
+
+
+def init_material_amount_form():
+    global material_amount_form, maf
+    material_amount_form = QWidget()
+    material_amount_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    maf = Ui_MaterialAmountForm()
+    maf.setupUi(material_amount_form)
+
+    maf.add_b.clicked.connect(mater_add)
+    maf.cancel_b.clicked.connect(material_amount_form.close)
 
 
 def mater_add():
@@ -1482,15 +1614,25 @@ def mater_add():
         show_error('Количество материала после изменения должно быть больше либо равно 0', 'Ок')
 
 
-maf.add_b.clicked.connect(mater_add)
-maf.cancel_b.clicked.connect(material_amount_form.close)
-
 # ########################################################################################### #
 # --------------------------------------- ФОРМА ЗАДАЧ --------------------------------------- #
 # ########################################################################################### #
-task_form = QWidget()
-taf = Ui_TaskForm()
-taf.setupUi(task_form)
+task_form: Optional[QWidget] = None
+taf: Optional[Ui_TaskForm] = None
+
+
+def init_task_form():
+    global task_form, taf
+    task_form = QWidget()
+    task_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    taf = Ui_TaskForm()
+    taf.setupUi(task_form)
+
+    taf.save_b.clicked.connect(task_save)
+    taf.del_b.clicked.connect(task_del)
+    taf.cancel_b.clicked.connect(task_form.close)
+
+    taf.doctor_s.addItem('Выберите врача...')
 
 
 def task_save():
@@ -1511,16 +1653,44 @@ def task_save():
         task_form.close()
 
 
-taf.save_b.clicked.connect(task_save)
-taf.del_b.clicked.connect(task_del)
-taf.cancel_b.clicked.connect(task_form.close)
-
 # ########################################################################################### #
 # -------------------------------------- ФОРМА ОТЧЕТОВ -------------------------------------- #
 # ########################################################################################### #
-reports_form = QWidget()
-repf = Ui_ReportsForm()
-repf.setupUi(reports_form)
+reports_form: Optional[QWidget] = None
+repf: Optional[Ui_ReportsForm] = None
+
+
+def init_reports_form():
+    global reports_form, repf
+    reports_form = QWidget()
+    reports_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    repf = Ui_ReportsForm()
+    repf.setupUi(reports_form)
+
+    repf.rec_upd_b.clicked.connect(rep_rec_upd)
+    repf.rec_days_r.clicked.connect(rep_rec_days)
+    repf.rec_months_r.clicked.connect(rep_rec_months)
+    repf.serv_upd_b.clicked.connect(rep_serv_upd)
+    repf.serv_serv_r.clicked.connect(rep_serv_serv)
+    repf.serv_cat_r.clicked.connect(rep_serv_cat)
+    repf.fin_upd_b.clicked.connect(rep_fin_upd)
+    repf.fin_days_r.clicked.connect(rep_fin_days)
+    repf.fin_months_r.clicked.connect(rep_fin_months)
+    repf.fin_income_r.clicked.connect(rep_fin_income)
+    repf.fin_outcome_r.clicked.connect(rep_fin_outcome)
+    repf.fin_profit_r.clicked.connect(rep_fin_profit)
+    repf.fin_payment_type_r.clicked.connect(rep_fin_payment_type)
+
+    cur_dt = QDate.currentDate()
+    repf.rec_start_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), 1))
+    repf.rec_end_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), cur_dt.daysInMonth()))
+    repf.serv_start_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), 1))
+    repf.serv_end_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), cur_dt.daysInMonth()))
+    repf.fin_start_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), 1))
+    repf.fin_end_dt.setDate(QDate(cur_dt.year(), cur_dt.month(), cur_dt.daysInMonth()))
+    rep_rec_upd()
+    rep_serv_upd()
+    rep_fin_upd()
 
 
 def create_histogram(sets, categories, x_name, y_name):
@@ -1641,26 +1811,22 @@ def rep_fin_payment_type():
     repf.fin_income_r.setChecked(False)
 
 
-repf.rec_upd_b.clicked.connect(rep_rec_upd)
-repf.rec_days_r.clicked.connect(rep_rec_days)
-repf.rec_months_r.clicked.connect(rep_rec_months)
-repf.serv_upd_b.clicked.connect(rep_serv_upd)
-repf.serv_serv_r.clicked.connect(rep_serv_serv)
-repf.serv_cat_r.clicked.connect(rep_serv_cat)
-repf.fin_upd_b.clicked.connect(rep_fin_upd)
-repf.fin_days_r.clicked.connect(rep_fin_days)
-repf.fin_months_r.clicked.connect(rep_fin_months)
-repf.fin_income_r.clicked.connect(rep_fin_income)
-repf.fin_outcome_r.clicked.connect(rep_fin_outcome)
-repf.fin_profit_r.clicked.connect(rep_fin_profit)
-repf.fin_payment_type_r.clicked.connect(rep_fin_payment_type)
-
 # ########################################################################################### #
 # -------------------------------- ФОРМА СОЗДАНИЯ ТРАНЗАКЦИИ -------------------------------- #
 # ########################################################################################### #
-transaction_form = QWidget()
-trf = Ui_TransactionForm()
-trf.setupUi(transaction_form)
+transaction_form: Optional[QWidget] = None
+trf: Optional[Ui_TransactionForm] = None
+
+
+def init_transaction_form():
+    global transaction_form, trf
+    transaction_form = QWidget()
+    transaction_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    trf = Ui_TransactionForm()
+    trf.setupUi(transaction_form)
+
+    trf.make_b.clicked.connect(make_transaction)
+    trf.cancel_b.clicked.connect(transaction_form.close)
 
 
 def make_transaction():
@@ -1677,19 +1843,30 @@ def make_transaction():
         show_info('Транзакция успешно проведена')
 
 
-trf.make_b.clicked.connect(make_transaction)
-trf.cancel_b.clicked.connect(transaction_form.close)
-
 # ########################################################################################### #
 # ------------------------------ ФОРМА ПРОСМОТРА ПОЛЬЗОВАТЕЛЕЙ ------------------------------ #
 # ########################################################################################### #
-show_users_form = QWidget()
-suf = Ui_ShowUsersForm()
-suf.setupUi(show_users_form)
+show_users_form: Optional[QWidget] = None
+suf: Optional[Ui_ShowUsersForm] = None
+
+
+def init_show_users_form():
+    global show_users_form, suf
+    show_users_form = QWidget()
+    show_users_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    suf = Ui_ShowUsersForm()
+    suf.setupUi(show_users_form)
+
+    suf.ins_b.clicked.connect(open_user_ins)
+    suf.upd_b.clicked.connect(open_user_upd)
+    suf.view.doubleClicked.connect(open_user_upd)
+    suf.del_b.clicked.connect(user_del)
+    suf.cancel_b.clicked.connect(show_users_form.close)
 
 
 def open_user_ins():
     if is_admin:
+        init_user_form()
         uf.login_e.clear()
         uf.login_e.setEnabled(True)
         uf.pass_e.clear()
@@ -1707,6 +1884,7 @@ def open_user_upd():
         model = suf.view.selectedIndexes()[0].model()
         row = suf.view.selectedIndexes()[0].row()
         if is_admin or model.data(model.index(row, 0)) == user_name:
+            init_user_form()
             uf.login_e.setText(model.data(model.index(row, 0)))
             uf.login_e.setEnabled(False)
             uf.pass_e.clear()
@@ -1747,18 +1925,23 @@ def user_del():
         show_error('Удаление пользователей доступно только администраторам системы', 'ОК')
 
 
-suf.ins_b.clicked.connect(open_user_ins)
-suf.upd_b.clicked.connect(open_user_upd)
-suf.view.doubleClicked.connect(open_user_upd)
-suf.del_b.clicked.connect(user_del)
-suf.cancel_b.clicked.connect(show_users_form.close)
-
 # ########################################################################################### #
 # ------------------------------ ФОРМА ИЗМЕНЕНИЙ ПОЛЬЗОВАТЕЛЯ ------------------------------- #
 # ########################################################################################### #
-user_form = QWidget()
-uf = Ui_UserForm()
-uf.setupUi(user_form)
+user_form: Optional[QWidget] = None
+uf: Optional[Ui_UserForm] = None
+
+
+def init_user_form():
+    global user_form, uf
+    user_form = QWidget()
+    user_form.setAttribute(Qt.WA_DeleteOnClose, True)
+    uf = Ui_UserForm()
+    uf.setupUi(user_form)
+
+    uf.save_b.clicked.connect(user_save)
+    uf.del_b.clicked.connect(user_del)
+    uf.cancel_b.clicked.connect(user_form.close)
 
 
 def user_save():
@@ -1795,13 +1978,10 @@ def user_save():
         user_form.close()
 
 
-uf.save_b.clicked.connect(user_save)
-uf.del_b.clicked.connect(user_del)
-uf.cancel_b.clicked.connect(user_form.close)
-
 # ########################################################################################### #
 # ------------------------------------ ЗАПУСК ПРИЛОЖЕНИЯ ------------------------------------ #
 # ########################################################################################### #
+init_login_form()
 LoginForm.show()
 
 # ТЕСТ #

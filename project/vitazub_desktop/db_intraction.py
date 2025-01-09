@@ -58,6 +58,7 @@ def db_client_sel(ln, fn, mn, min_next_visit_dt, max_next_visit_dt):
 
 
 def db_client_ins(s_name, f_name, l_name, phone, phone2, birth_dt, discount, comment):
+    discount = discount or 0
     db_for_idu.execute(f"INSERT INTO V_CLIENT (LAST_NAME, FIRST_NAME, MIDDLE_NAME, PHONE, \n"
                        f"ADDITIONAL_PHONE, DISCOUNT, BIRTH_DT, COMMENT, SOURCE_SYSTEM_CD)\n"
                        f"VALUES ('{s_name}', '{f_name}', '{l_name}', '{phone}', '{phone2}', \n"

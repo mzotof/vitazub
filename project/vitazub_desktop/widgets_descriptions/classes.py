@@ -1,6 +1,6 @@
 from PySide2.QtCore import QDate, Qt, QLocale
-from PySide2.QtWidgets import QCalendarWidget, QTimeEdit, QDateTimeEdit, QComboBox
-from PySide2.QtGui import QPen
+from PySide2.QtWidgets import QCalendarWidget, QTimeEdit, QDateTimeEdit, QComboBox, QWidget
+from PySide2.QtGui import QPen, QCloseEvent
 
 from db_intraction import db_doctor_sel
 
